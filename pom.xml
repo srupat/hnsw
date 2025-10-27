@@ -1,0 +1,22 @@
+<dependencies>
+    <!-- Core numerics, data structures -->
+    <dependency>
+        <groupId>com.github.haifengl</groupId>
+        <artifactId>smile-core</artifactId>
+        <version>3.0.2</version>
+    </dependency>
+
+    <!-- Clustering algorithms (HDBSCAN, DBSCAN, etc.) -->
+    <dependency>
+        <groupId>com.github.haifengl</groupId>
+        <artifactId>smile-clustering</artifactId>
+        <version>3.0.2</version>
+    </dependency>
+
+    <!-- Nearest-neighbor data structures (KDTree, BallTree, etc.) -->
+    <dependency>
+        <groupId>com.github.haifengl</groupId>
+        <artifactId>smile-neighbor</artifactId>
+        <version>3.0.2</version>
+    </dependency>
+</dependencies>
