@@ -1,22 +1,31 @@
-<dependencies>
-    <!-- Core numerics, data structures -->
-    <dependency>
-        <groupId>com.github.haifengl</groupId>
-        <artifactId>smile-core</artifactId>
-        <version>3.0.2</version>
-    </dependency>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
 
-    <!-- Clustering algorithms (HDBSCAN, DBSCAN, etc.) -->
-    <dependency>
-        <groupId>com.github.haifengl</groupId>
-        <artifactId>smile-clustering</artifactId>
-        <version>3.0.2</version>
-    </dependency>
+    <groupId>com.example</groupId>
+    <artifactId>hnsw</artifactId>
+    <version>1.0-SNAPSHOT</version>
 
-    <!-- Nearest-neighbor data structures (KDTree, BallTree, etc.) -->
-    <dependency>
-        <groupId>com.github.haifengl</groupId>
-        <artifactId>smile-neighbor</artifactId>
-        <version>3.0.2</version>
-    </dependency>
-</dependencies>
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+    </properties>
+
+    <dependencies>
+        <!-- Core numerics, data structures -->
+        <dependency>
+            <groupId>com.github.haifengl</groupId>
+            <artifactId>smile-core</artifactId>
+            <version>3.0.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.elki-project</groupId>
+            <artifactId>elki</artifactId>
+            <version>0.8.0</version>
+        </dependency>
+
+    </dependencies>
+
+</project>

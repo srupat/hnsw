@@ -1,6 +1,7 @@
 package com.example.hnsw;
 
-import smile.clustering.HDBSCAN;
+//import smile.clustering.HDBSCAN;
+
 import smile.clustering.KMeans;
 import smile.neighbor.KDTree;
 import smile.neighbor.Neighbor;
@@ -17,47 +18,118 @@ class SmileClusteringService implements ClusteringService {
         if (dim <= 0) throw new IllegalArgumentException("dim must be > 0");
         double[][] X = toArray(points, dim);
 
-        switch (algo) {
-            case KMEANS:            return runKMeans(X, params, false);
-            case KMEANS_PLUS_PLUS:  return runKMeans(X, params, true);
-            case HDBSCAN:           return runHDBSCAN(X, params);
-            case KDTREE_VORONOI:    return runKDTreeVoronoi(X, dim, params);
-            default:
-                throw new UnsupportedOperationException("Unknown algorithm: " + algo);
-        }
+        return switch (algo) {
+            case KMEANS -> runKMeans(X, params, false);
+            case KMEANS_PLUS_PLUS -> runKMeans(X, params, true);
+//            case HDBSCAN:           return runHDBSCAN(X, params);
+            case KDTREE_VORONOI -> runKDTreeVoronoi(X, dim, params);
+            default -> throw new UnsupportedOperationException("Unknown algorithm: " + algo);
+        };
     }
 
-    // ---------- KMEANS / KMEANS++ (Euclidean) ----------
+
+    // --- Replace your runKMeans with this ---
     private ClusterResult runKMeans(double[][] X, ClusteringParams p, boolean plusPlus) {
-        if (p.k == null || p.k <= 0) throw new IllegalArgumentException("k must be provided > 0");
+        if (p == null) throw new IllegalArgumentException("params cannot be null");
+        if (p.k == null || p.k <= 0) throw new IllegalArgumentException("k must be > 0");
+        final int k = p.k;
+        final int maxIters = (p.maxIters == null ? 100 : p.maxIters);
+        final long seed = (p.randomSeed == null ? 42L : p.randomSeed);
 
-        KMeans.Initialization init = plusPlus
-                ? KMeans.Initialization.KMEANS_PLUS_PLUS
-                : KMeans.Initialization.RANDOM;
+        // Choose init: K-Means++ or plain random
+        double[][] init = plusPlus
+                ? kmeansPlusPlusSeeds(X, k, seed)
+                : randomSeeds(X, k, seed);
 
-        Random rng = new Random(p.randomSeed == null ? 42L : p.randomSeed);
-        KMeans model = KMeans.fit(X, p.k, p.maxIters, init, rng);
-
-        int[] labels = model.y;
-        double[][] centroids = model.centroids();
+        // Lloyd iterations with the chosen init
+        LloydResult lr = lloyd(X, init, maxIters);
 
         Map<String, Object> meta = new HashMap<>();
         meta.put("algo", plusPlus ? "kmeans++" : "kmeans");
-        meta.put("inertia", model.error());
-        meta.put("iterations", model.iterations());
-        return new ClusterResult(labels, centroids, meta);
+        meta.put("k", k);
+        meta.put("maxIters", maxIters);
+        meta.put("itersRun", lr.iters);
+        meta.put("changedLastIter", lr.changed);
+        return new ClusterResult(lr.labels, lr.centroids, meta);
     }
 
-    // ---------- HDBSCAN (Euclidean) ----------
-    private ClusterResult runHDBSCAN(double[][] X, ClusteringParams p) {
-        int minPts = (p.minPts == null) ? 5 : p.minPts;
-        HDBSCAN h = HDBSCAN.fit(X, minPts);
-        int[] labels = h.y;
-        Map<String, Object> meta = new HashMap<>();
-        meta.put("algo", "hdbscan");
-        meta.put("numClusters", Arrays.stream(labels).filter(c -> c >= 0).distinct().count());
-        meta.put("hasNoise", Arrays.stream(labels).anyMatch(c -> c < 0));
-        return new ClusterResult(labels, null, meta);
+// --- Helpers: random init, lloyd updates, etc. ---
+
+    /** Randomly pick k distinct rows as initial centers. */
+    private static double[][] randomSeeds(double[][] X, int k, long seed) {
+        Random rng = new Random(seed);
+        int n = X.length, d = X[0].length;
+        int[] idx = new int[n];
+        for (int i = 0; i < n; i++) idx[i] = i;
+        // Fisher–Yates shuffle first k
+        for (int i = 0; i < k; i++) {
+            int j = i + rng.nextInt(n - i);
+            int tmp = idx[i]; idx[i] = idx[j]; idx[j] = tmp;
+        }
+        double[][] C = new double[k][d];
+        for (int c = 0; c < k; c++) C[c] = Arrays.copyOf(X[idx[c]], d);
+        return C;
+    }
+
+    /** One Lloyd run from given init centers. */
+    private static LloydResult lloyd(double[][] X, double[][] C0, int maxIters) {
+        int n = X.length, d = X[0].length, k = C0.length;
+        double[][] C = new double[k][d];
+        for (int c = 0; c < k; c++) C[c] = Arrays.copyOf(C0[c], d);
+
+        int[] labels = new int[n];
+        Arrays.fill(labels, -1);
+
+        boolean changed = true;
+        int it = 0;
+        while (it < maxIters && changed) {
+            changed = false;
+
+            // Assign step
+            for (int i = 0; i < n; i++) {
+                int best = 0; double bestDist = Double.POSITIVE_INFINITY;
+                for (int c = 0; c < k; c++) {
+                    double s = 0.0;
+                    for (int j = 0; j < d; j++) {
+                        double diff = X[i][j] - C[c][j];
+                        s += diff * diff;
+                    }
+                    if (s < bestDist) { bestDist = s; best = c; }
+                }
+                if (labels[i] != best) { labels[i] = best; changed = true; }
+            }
+
+            if (!changed) break;
+
+            // Update step
+            double[][] nextC = new double[k][d];
+            int[] counts = new int[k];
+            for (int i = 0; i < n; i++) {
+                int c = labels[i];
+                counts[c]++;
+                for (int j = 0; j < d; j++) nextC[c][j] += X[i][j];
+            }
+            for (int c = 0; c < k; c++) {
+                if (counts[c] == 0) {
+                    // Empty cluster: keep old center (or re-seed randomly if you prefer)
+                    continue;
+                }
+                for (int j = 0; j < d; j++) nextC[c][j] /= counts[c];
+            }
+            C = nextC;
+            it++;
+        }
+        return new LloydResult(C, labels, it, changed);
+    }
+
+    private static class LloydResult {
+        final double[][] centroids;
+        final int[] labels;
+        final int iters;
+        final boolean changed;
+        LloydResult(double[][] C, int[] y, int iters, boolean changed) {
+            this.centroids = C; this.labels = y; this.iters = iters; this.changed = changed;
+        }
     }
 
     // ---------- KD-TREE + VORONOI (Euclidean) ----------

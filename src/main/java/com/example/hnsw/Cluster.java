@@ -22,11 +22,14 @@ class Cluster {
         ClusterResult r1 = svc.cluster(points, dim, ClusteringAlgorithm.KMEANS_PLUS_PLUS, p1);
         System.out.println("KMeans++ labels: " + Arrays.toString(r1.labels));
 
+        ClusterResult r2 = svc.cluster(points, dim, ClusteringAlgorithm.KMEANS, p1);
+        System.out.println("KMeans labels: " + Arrays.toString(r1.labels));
+
         // HDBSCAN
-        ClusteringParams p2 = new ClusteringParams();
-        p2.minPts = 4;
-        ClusterResult r2 = svc.cluster(points, dim, ClusteringAlgorithm.HDBSCAN, p2);
-        System.out.println("HDBSCAN labels: " + Arrays.toString(r2.labels));
+//        ClusteringParams p2 = new ClusteringParams();
+//        p2.minPts = 4;
+//        ClusterResult r2 = svc.cluster(points, dim, ClusteringAlgorithm.HDBSCAN, p2);
+//        System.out.println("HDBSCAN labels: " + Arrays.toString(r2.labels));
 
         // KDTree + Voronoi with explicit sites (optional)
         ClusteringParams p3 = new ClusteringParams();
